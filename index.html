@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Caro 5×5 ONLINE | Chơi Từ Xa</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --grad-1: #6366f1;
+            --grad-2: #8b5cf6;
+            --grad-3: #ec4899;
+            --x-color: #3b82f6;
+            --x-glow: rgba(59, 130, 246, 0.4);
+            --o-color: #f97316;
+            --o-glow: rgba(249, 115, 22, 0.4);
+            --success: #10b981;
+            --dark: #0f172a;
+            --light: #f8fafc;
+            --glass: rgba(255,255,255,0.12);
+            --shadow-soft: 0 8px 32px rgba(31, 38, 135, 0.2);
+            --radius-lg: 24px;
+            --radius-md: 16px;
+            --radius-sm: 12px;
+            --cell-size: 65px;
+            --container-max: 720px;
+            --padding-main: 20px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            height: 100%;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%);
+            color: var(--light);
+            position: relative;
+        }
+
+        .bg-particles {
+            position: fixed; inset: 0; pointer-events: none; z-index: 0;
+        }
+        .particle {
+            position: absolute; border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            animation: float 15s infinite ease-in-out;
+        }
+        @keyframes float {
+            0%,100%{transform:translateY(0) rotate(0);opacity:0.3;}
+            50%{transform:translateY(-30px) rotate(180deg);opacity:0.6;}
+        }
+
+        .container {
+            position: relative; z-index: 1;
+            max-width: var(--container-max); margin: 0 auto;
+            padding: var(--padding-main);
+        }
+
+        header { text-align: center; margin-bottom: 24px; }
+        .logo {
+            font-size: clamp(1.8rem,5vw,2.5rem); font-weight: 800;
+            background: linear-gradient(90deg,#60a5fa,#f472b6);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            color: #cbd5e1; font-weight: 500;
+            font-size: clamp(0.85rem,2.5vw,1rem); margin-top: 6px;
+        }
+
+        .card {
+            background: var(--glass); backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: var(--radius-lg);
+            padding: clamp(20px,5vw,28px); margin-bottom: 20px;
+        }
+        .card-title {
+            font-size: clamp(1.1rem,3vw,1.25rem); font-weight: 700;
+            margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
+        }
+
+        .room-code {
+            background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3);
+            border-radius: var(--radius-md); padding: 16px; text-align: center;
+            margin-bottom: 20px;
+        }
+        .room-code-text {
+            font-size: 2rem; font-weight: 800; color: #6ee7b7; letter-spacing: 4px;
+        }
+        .copy-btn {
+            margin-top: 8px; padding: 8px 16px; font-size: 0.9rem;
+            background: rgba(255,255,255,0.1); color: white; border: none;
+            border-radius: 8px; cursor: pointer;
+        }
+        .copy-btn:hover { background: rgba(255,255,255,0.2); }
+
+        .status-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 6px 14px; border-radius: 20px; font-size: 0.9rem; font-weight: 600;
+            margin-bottom: 16px;
+        }
+        .status-wait { background: rgba(234,179,8,0.15); color: #fef08a; border: 1px solid rgba(234,179,8,0.3); }
+        .status-ready { background: rgba(16,185,129,0.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.3); }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: blink 1.5s infinite; }
+        @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+        .score-board {
+            display: grid; grid-template-columns: 1fr 1fr; gap: clamp(12px,3vw,20px); margin-bottom: 20px;
+        }
+        .player-card {
+            background: rgba(255,255,255,0.06); border-radius: var(--radius-md);
+            padding: clamp(14px,4vw,20px); text-align: center;
+            border: 2px solid transparent; transition: all 0.3s ease;
+        }
+        .player-card.active { transform: scale(1.03); }
+        .player-card.x-player.active { border-color: var(--x-color); box-shadow: 0 0 20px var(--x-glow); }
+        .player-card.o-player.active { border-color: var(--o-color); box-shadow: 0 0 20px var(--o-glow); }
+        .player-avatar {
+            width: clamp(40px,10vw,48px); height: clamp(40px,10vw,48px);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: clamp(18px,5vw,24px); font-weight: 800; margin: 0 auto 8px;
+        }
+        .x-player .player-avatar { background: linear-gradient(135deg,#3b82f6,#1d4ed8); box-shadow: 0 0 12px var(--x-glow); }
+        .o-player .player-avatar { background: linear-gradient(135deg,#f97316,#ea580c); box-shadow: 0 0 12px var(--o-glow); }
+        .player-name { font-weight: 600; font-size: clamp(0.9rem,2.5vw,1rem); margin-bottom: 4px; word-break: break-word; }
+        .score-val { font-size: clamp(1.8rem,6vw,2.2rem); font-weight: 800; }
+        .x-player .score-val { color: #60a5fa; }
+        .o-player .score-val { color: #fdba74; }
+        .me-tag { display: inline-block; background: rgba(255,255,255,0.15); padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; margin-left: 6px; }
+
+        .status-box {
+            text-align: center; padding: clamp(12px,3vw,16px); border-radius: var(--radius-md);
+            background: rgba(255,255,255,0.06); margin-bottom: 20px; font-weight: 600;
+            font-size: clamp(0.95rem,2.8vw,1.05rem); min-height: 56px;
+            display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;
+        }
+        .status-win { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); color: #6ee7b7; }
+        .status-draw { background: rgba(234,179,8,0.15); border: 1px solid rgba(234,179,8,0.3); color: #fef08a; }
+        .status-opponent { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); color: #93c5fd; }
+
+        .board {
+            display: grid; grid-template-columns: repeat(5,1fr);
+            gap: clamp(5px,1.5vw,8px); max-width: calc(var(--cell-size)*5 + 32px);
+            margin: 0 auto 20px;
+        }
+        .cell {
+            width: var(--cell-size); height: var(--cell-size);
+            background: rgba(255,255,255,0.08); border-radius: var(--radius-sm);
+            display: flex; align-items: center; justify-content: center;
+            font-size: clamp(24px,6vw,32px); font-weight: 800;
+            cursor: pointer; transition: all 0.2s ease; user-select: none;
+        }
+        .cell:hover:not(.taken):not(.disabled) { background: rgba(255,255,255,0.18); transform: scale(1.05); }
+        .cell:active:not(.taken):not(.disabled) { transform: scale(0.95); }
+        .cell.taken { cursor: not-allowed; }
+        .cell.disabled { cursor: not-allowed; opacity: 0.7; }
+        .cell.X { color: #60a5fa; text-shadow: 0 0 10px var(--x-glow); }
+        .cell.O { color: #fdba74; text-shadow: 0 0 10px var(--o-glow); }
+        .cell.win-cell { animation: pulseWin 0.6s ease-in-out infinite alternate; background: rgba(250,204,21,0.2); border: 2px solid rgba(250,204,21,0.4); }
+        @keyframes pulseWin { from{transform:scale(1);} to{transform:scale(1.08);} }
+        .cell.place-anim { animation: popIn 0.25s ease-out; }
+        @keyframes popIn { 0%{transform:scale(0);opacity:0;} 70%{transform:scale(1.15);} 100%{transform:scale(1);opacity:1;} }
+
+        .form-grid { display: grid; gap: 14px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        label { font-size: clamp(0.85rem,2.2vw,0.9rem); font-weight: 600; color: #cbd5e1; }
+        input {
+            padding: clamp(10px,2.5vw,12px) 14px; border-radius: var(--radius-sm);
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.08); color: white;
+            font-size: clamp(0.9rem,2.5vw,1rem); outline: none;
+            transition: all 0.3s ease; font-family: inherit;
+        }
+        input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.2); }
+
+        .btn-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
+        button {
+            padding: clamp(12px,3vw,14px) clamp(20px,5vw,28px);
+            border-radius: var(--radius-sm); font-size: clamp(0.9rem,2.5vw,1rem);
+            font-weight: 700; border: none; cursor: pointer;
+            transition: all 0.3s ease; font-family: inherit; min-width: 120px;
+        }
+        .btn-primary { background: linear-gradient(135deg,#6366f1,#8b5cf6); color: white; box-shadow: 0 4px 15px rgba(99,102,241,0.4); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(99,102,241,0.5); }
+        .btn-secondary { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); }
+        .btn-accent { background: linear-gradient(135deg,#f97316,#ec4899); color: white; }
+        .btn-sm { padding: 8px 16px; font-size: 0.9rem; min-width: auto; }
+
+        .stats-box {
+            background: rgba(255,255,255,0.06); border-radius: var(--radius-md);
+            padding: clamp(12px,3vw,16px) clamp(14px,3vw,20px); margin-top: 20px; display: none;
+        }
+        .stats-box.show { display: block; animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
+        .stats-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .stat-label { font-weight: 600; color: #94a3b8; font-size: 0.9rem; }
+        .stat-val { font-weight: 700; font-size: 1.1rem; }
+        .leader-badge {
+            display: inline-block; padding: 5px 14px; border-radius: 20px;
+            background: linear-gradient(90deg,#fbbf24,#f59e0b); color: #1e293b;
+            font-weight: 700; font-size: 0.85rem; margin-top: 10px;
+        }
+
+        .hidden { display: none !important; }
+        footer { text-align: center; margin-top: 20px; color: #64748b; font-size: 0.8rem; line-height: 1.5; }
+
+        /* Responsive */
+        @media (max-width: 374px) {
+            :root { --cell-size: 50px; --padding-main: 12px; }
+            .card { padding: 16px; }
+            .form-row { grid-template-columns: 1fr; }
+            button { width: 100%; }
+        }
+        @media (min-width: 375px) and (max-width: 428px) {
+            :root { --cell-size: 55px; --padding-main: 16px; }
+        }
+        @media (min-width: 768px) {
+            :root { --cell-size: 70px; }
+            .form-row { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 767px) and (orientation: landscape) {
+            :root { --cell-size: 45px; }
+            .card { padding: 14px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-particles" id="particles"></div>
+    <div class="container">
+        <header>
+            <h1 class="logo">🎮 CARO 5×5 ONLINE</h1>
+            <p class="subtitle">Chơi từ xa — Hai người, Hai nơi, Một trận đấu</p>
+        </header>
+
+        <!-- Bước 1: Tạo phòng / Tham gia -->
+        <div class="card" id="lobbyCard">
+            <h2 class="card-title">🌐 Vào Sảnh Chơi</h2>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Tên của bạn</label>
+                    <input type="text" id="myName" placeholder="Nhập tên..." value="Người Chơi">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: flex-end;">
+                    <div class="form-group">
+                        <label>Mã phòng (Nhận từ bạn)</label>
+                        <input type="text" id="roomIdInput" placeholder="VD: ABC123" style="text-transform: uppercase;">
+                    </div>
+                    <button class="btn-secondary" onclick="joinRoom()" style="margin-bottom: 0;">Vào</button>
+                </div>
+            </div>
+            <div style="text-align: center; margin: 20px 0; color: #94a3b8;">— Hoặc —</div>
+            <button class="btn-primary" onclick="createRoom()" style="width: 100%;">🏠 Tạo Phòng Mới</button>
+        </div>
+
+        <!-- Bước 2: Đang trong phòng -->
+        <div class="card hidden" id="roomCard">
+            <div class="room-code">
+                <p style="font-size: 0.9rem; color: #94a3b8; margin-bottom: 4px;">Mã phòng của bạn</p>
+                <div class="room-code-text" id="displayRoomId"></div>
+                <button class="copy-btn" onclick="copyRoomCode()">📋 Sao chép mã</button>
+            </div>
+            <div class="status-badge" id="opponentStatus">
+                <span class="status-dot"></span>
+                <span id="opponentStatusText">Đang chờ đối phương vào...</span>
+            </div>
+            <div class="score-board">
+                <div class="player-card x-player" id="p1Card">
+                    <div class="player-avatar" id="p1Sym">X</div>
+                    <div class="player-name" id="p1Name">—</div>
+                    <div class="score-val" id="score1">0</div>
+                </div>
+                <div class="player-card o-player" id="p2Card">
+                    <div class="player-avatar" id="p2Sym">O</div>
+                    <div class="player-name" id="p2Name">—</div>
+                    <div class="score-val" id="score2">0</div>
+                </div>
+            </div>
+            <div class="status-box" id="statusBox">
+                <span id="statusText">Sẵn sàng! Chờ đối phương vào phòng...</span>
+            </div>
+            <div class="board" id="board"></div>
+            <div class="btn-row">
+                <button class="btn-secondary" id="newRoundBtn" onclick="requestNewRound()" style="display:none;">🔄 Ván Mới</button>
+                <button class="btn-accent" onclick="leaveRoom()">🚪 Rời Phòng</button>
+            </div>
+            <div class="stats-box" id="statsBox">
+                <div class="stats-row">
+                    <span class="stat-label">Tổng ván:</span>
+                    <span class="stat-val" id="totalRounds">0</span>
+                </div>
+                <div class="stats-row">
+                    <span class="stat-label">Tỷ số:</span>
+                    <span class="stat-val" id="ratioText">0 — 0</span>
+                </div>
+                <div id="leaderWrap"></div>
+            </div>
+        </div>
+
+        <footer>
+            💡 Chia sẻ mã phòng cho bạn bè → họ nhập mã → 2 người chơi cùng nhau
+        </footer>
+    </div>
+
+    <script>
+        // ==================================================
+        // ✅ ĐÃ ĐIỀN SẴN FIREBASE CỦA BẠN — KHÔNG CẦN THAY ĐỔI GÌ NỮA
+        // ==================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyAyvgtkVQOeWLK1vuZtwBaOk37TIG7BmWo",
+            authDomain: "caro-online-7cd28.firebaseapp.com",
+            databaseURL: "https://caro-online-7cd28-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "caro-online-7cd28",
+            storageBucket: "caro-online-7cd28.firebasestorage.app",
+            messagingSenderId: "878757567922",
+            appId: "1:878757567922:web:e942e38cb038684c9c58ab"
+        };
+        // ==================================================
+        // KẾT THÚC — ĐÃ SẴN SÀNG SỬ DỤNG
+        // ==================================================
+
+        // Khởi tạo Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Hiệu ứng nền
+        const pc = document.getElementById('particles');
+        for (let i = 0; i < 25; i++) {
+            const p = document.createElement('div');
+            p.classList.add('particle');
+            const s = 4 + Math.random() * 10;
+            p.style.width = p.style.height = `${s}px`;
+            p.style.left = `${Math.random() * 100}%`;
+            p.style.top = `${Math.random() * 100}%`;
+            p.style.animationDelay = `${Math.random() * 15}s`;
+            pc.appendChild(p);
+        }
+
+        // Biến game
+        const SIZE = 5;
+        const WIN_NEED = 3;
+        let myName = '';
+        let mySymbol = null;
+        let roomId = null;
+        let roomRef = null;
+        let board = [];
+        let gameActive = false;
+        let scores = { X: 0, O: 0 };
+        let totalGames = 0;
+        let isHost = false;
+
+        // Tạo mã phòng ngẫu nhiên
+        function generateRoomId() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let id = '';
+            for (let i = 0; i < 6; i++) id += chars[Math.floor(Math.random() * chars.length)];
+            return id;
+        }
+
+        // Tạo phòng
+        async function createRoom() {
+            myName = document.getElementById('myName').value.trim() || 'Người Chơi';
+            roomId = generateRoomId();
+            isHost = true;
+
+            // Khởi tạo dữ liệu phòng
+            roomRef = db.ref('rooms/' + roomId);
+            await roomRef.set({
+                players: {
+                    X: { name: myName, online: true },
+                    O: { name: '', online: false }
+                },
+                board: Array(SIZE).fill(null).map(() => Array(SIZE).fill('')),
+                currentTurn: 'X',
+                gameState: 'waiting',
+                scores: { X: 0, O: 0 },
+                totalGames: 0
+            });
+
+            mySymbol = 'X';
+            enterRoomUI();
+        }
+
+        // Tham gia phòng
+        async function joinRoom() {
+            const inputId = document.getElementById('roomIdInput').value.trim().toUpperCase();
+            myName = document.getElementById('myName').value.trim() || 'Người Chơi';
+
+            if (!inputId) { alert('Vui lòng nhập mã phòng!'); return; }
+
+            const snap = await db.ref('rooms/' + inputId).once('value');
+            if (!snap.exists()) { alert('Mã phòng không tồn tại!'); return; }
+
+            const data = snap.val();
+            if (data.players.O.name) { alert('Phòng đã đủ người!'); return; }
+            if (data.gameState === 'ended') { alert('Trận đấu đã kết thúc!'); return; }
+
+            roomId = inputId;
+            isHost = false;
+            mySymbol = 'O';
+
+            // Cập nhật người chơi O
+            roomRef = db.ref('rooms/' + roomId);
+            await roomRef.child('players/O').update({ name: myName, online: true });
+
+            enterRoomUI();
+        }
+
+        // Vào giao diện phòng
+        function enterRoomUI() {
+            document.getElementById('lobbyCard').classList.add('hidden');
+            document.getElementById('roomCard').classList.remove('hidden');
+            document.getElementById('displayRoomId').textContent = roomId;
+
+            // Lắng nghe thay đổi dữ liệu phòng
+            roomRef.on('value', snapshot => {
+                const data = snapshot.val();
+                if (!data) return;
+                updateFromServer(data);
+            });
+        }
+
+        // Cập nhật giao diện từ dữ liệu server
+        function updateFromServer(data) {
+            // Cập nhật thông tin người chơi
+            const p1 = data.players.X;
+            const p2 = data.players.O;
+
+            document.getElementById('p1Name').innerHTML = p1.name + (mySymbol === 'X' ? ' <span class="me-tag">Tôi</span>' : '');
+            document.getElementById('p2Name').innerHTML = p2.name || 'Đang chờ...' + (mySymbol === 'O' ? ' <span class="me-tag">Tôi</span>' : '');
+
+            // Trạng thái đối phương
+            if (!p2.name) {
+                document.getElementById('opponentStatus').className = 'status-badge status-wait';
+                document.getElementById('opponentStatusText').textContent = 'Đang chờ đối phương vào...';
+                gameActive = false;
+            } else {
+                document.getElementById('opponentStatus').className = 'status-badge status-ready';
+                document.getElementById('opponentStatusText').textContent = 'Đối phương đã sẵn sàng!';
+            }
+
+            // Bàn cờ
+            board = data.board;
+            renderBoard();
+
+            // Điểm
+            scores = data.scores || { X: 0, O: 0 };
+            totalGames = data.totalGames || 0;
+            document.getElementById('score1').textContent = scores.X;
+            document.getElementById('score2').textContent = scores.O;
+
+            // Lượt đi
+            const isMyTurn = data.currentTurn === mySymbol;
+            updateStatus(data, isMyTurn);
+
+            // Nút ván mới
+            document.getElementById('newRoundBtn').style.display = (data.gameState === 'win' || data.gameState === 'draw') ? 'inline-block' : 'none';
+        }
+
+        // Vẽ bàn cờ
+        function renderBoard() {
+            const boardEl = document.getElementById('board');
+            boardEl.innerHTML = '';
+
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    if (board[r][c]) {
+                        cell.textContent = board[r][c];
+                        cell.classList.add('taken', board[r][c]);
+                    }
+                    cell.onclick = () => handleCellClick(r, c);
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+
+        // Xử lý đánh nước đi
+        function handleCellClick(r, c) {
+            roomRef.once('value').then(snap => {
+                const data = snap.val();
+                if (!data || data.gameState === 'win' || data.gameState === 'draw') return;
+                if (data.currentTurn !== mySymbol) return; // Không phải lượt tôi
+                if (data.board[r][c] !== '') return; // Ô đã có
+
+                // Cập nhật nước đi
+                const newBoard = data.board.map(row => [...row]);
+                newBoard[r][c] = mySymbol;
+
+                // Kiểm tra thắng
+                const winCells = checkWinStatic(newBoard, r, c, mySymbol);
+                let updates = { board: newBoard };
+
+                if (winCells) {
+                    updates.gameState = 'win';
+                    updates.winner = mySymbol;
+                    updates['scores/' + mySymbol] = scores[mySymbol] + 1;
+                    updates.totalGames = (data.totalGames || 0) + 1;
+                } else if (newBoard.flat().every(c => c)) {
+                    updates.gameState = 'draw';
+                    updates.totalGames = (data.totalGames || 0) + 1;
+                } else {
+                    updates.currentTurn = data.currentTurn === 'X' ? 'O' : 'X';
+                }
+
+                roomRef.update(updates);
+            });
+        }
+
+        // Kiểm tra thắng (hàm tĩnh)
+        function checkWinStatic(b, r, c, sym) {
+            const dirs = [[[0, 1], [0, -1]], [[1, 0], [-1, 0]], [[1, 1], [-1, -1]], [[1, -1], [-1, 1]]];
+            for (const [d1, d2] of dirs) {
+                let line = [[r, c]];
+                for (let s = 1; s < WIN_NEED; s++) {
+                    const nr = r + d1[0] * s, nc = c + d1[1] * s;
+                    if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && b[nr][nc] === sym) line.push([nr, nc]);
+                    else break;
+                }
+                for (let s = 1; s < WIN_NEED; s++) {
+                    const nr = r + d2[0] * s, nc = c + d2[1] * s;
+                    if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && b[nr][nc] === sym) line.push([nr, nc]);
+                    else break;
+                }
+                if (line.length >= WIN_NEED) return line;
+            }
+            return null;
+        }
+
+        // Cập nhật trạng thái hiển thị
+        function updateStatus(data, isMyTurn) {
+            const box = document.getElementById('statusBox');
+
+            if (data.gameState === 'win') {
+                box.className = 'status-box status-win';
+                const winnerName = data.winner === 'X' ? data.players.X.name : data.players.O.name;
+                box.innerHTML = `🎉 <strong>${winnerName}</strong> CHIẾN THẮNG!`;
+                showStatsFinal();
+            } else if (data.gameState === 'draw') {
+                box.className = 'status-box status-draw';
+                box.textContent = '🤝 Trận đấu HÒA!';
+                showStatsFinal();
+            } else {
+                box.className = 'status-box' + (isMyTurn ? '' : ' status-opponent');
+                if (!data.players.O.name) {
+                    box.textContent = 'Chờ đối phương vào phòng...';
+                } else if (isMyTurn) {
+                    box.innerHTML = '✅ Đến lượt <strong>BẠN</strong> đi!';
+                } else {
+                    box.innerHTML = '⏳ Chờ <strong>đối phương</strong> đi...';
+                }
+            }
+
+            // Đánh dấu ai đang đi
+            document.getElementById('p1Card').classList.toggle('active', data.currentTurn === 'X' && data.players.X.name);
+            document.getElementById('p2Card').classList.toggle('active', data.currentTurn === 'O' && data.players.O.name);
+        }
+
+        function showStatsFinal() {
+            document.getElementById('totalRounds').textContent = totalGames;
+            document.getElementById('ratioText').textContent = `${scores.X} — ${scores.O}`;
+            const leaderWrap = document.getElementById('leaderWrap');
+            if (scores.X > scores.O) {
+                leaderWrap.innerHTML = `<span class="leader-badge">🏆 Đang dẫn đầu: ${document.getElementById('p1Name').textContent.replace('(Tôi)', '').trim()}</span>`;
+            } else if (scores.O > scores.X) {
+                leaderWrap.innerHTML = `<span class="leader-badge">🏆 Đang dẫn đầu: ${document.getElementById('p2Name').textContent.replace('(Tôi)', '').trim()}</span>`;
+            } else {
+                leaderWrap.innerHTML = `<span class="leader-badge">⚖️ Tỷ số bằng nhau!</span>`;
+            }
+            document.getElementById('statsBox').classList.add('show');
+        }
+
+        // Yêu cầu ván mới
+        function requestNewRound() {
+            roomRef.update({
+                board: Array(SIZE).fill(null).map(() => Array(SIZE).fill('')),
+                currentTurn: 'X',
+                gameState: 'playing'
+            });
+            document.getElementById('statsBox').classList.remove('show');
+        }
+
+        // Rời phòng
+        function leaveRoom() {
+            if (confirm('Bạn có chắc muốn rời phòng?')) {
+                if (roomRef) roomRef.off();
+                location.reload();
+            }
+        }
+
+        // Sao chép mã phòng
+        function copyRoomCode() {
+            navigator.clipboard.writeText(roomId).then(() => {
+                alert('Đã sao chép mã phòng: ' + roomId);
+            });
+        }
+    </script>
+</body>
+</html>
